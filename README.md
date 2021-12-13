@@ -7,3 +7,4 @@ Learning Rust by building a FTP brute-forcer
 - [ ] Caching
 - [ ] Task Queue (?)
 - [ ] Distributed workload (across several running instances)
+- [ ] Built-in performance metrics
