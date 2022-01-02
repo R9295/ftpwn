@@ -1,5 +1,13 @@
+/target
 main
 notes.md
 list.txt
 passwd.txt
 TODO
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
