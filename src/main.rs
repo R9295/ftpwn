@@ -15,12 +15,12 @@ struct Args {
 
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
-    let ip_list: Vec<String> = read_file(args.ip_list);
-    let passwd_list: Vec<String> = read_file(args.passwd_list);
+    let ip_list: Vec<String> = read_file(&args.ip_list);
+    let passwd_list: Vec<String> = read_file(&args.passwd_list);
     Ok(())
 }
 
-fn read_file(file_name: String) -> Vec<String> {
+fn read_file(file_name: &String) -> Vec<String> {
     let file_exists = Path::new(&file_name).is_file();
     if file_exists == false {
         panic!("{}", format!("File {} does not exist!", file_name))
