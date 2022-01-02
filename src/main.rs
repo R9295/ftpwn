@@ -18,13 +18,14 @@ struct Args {
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let ip_list: Vec<String> = read_file(&args.ip_list);
+    println!("Found {:?} IPs", ip_list.len());
     let passwd_list: Vec<String> = read_file(&args.passwd_list);
+    println!("Found {:?} passwords", passwd_list.len());
     let mut addresses = Vec::new();
     // TODO make into a generator (generators are not stable yet)
     for ip in &ip_list {
         addresses.push(Address::new(ip))
     }
-    println!("{:?}", addresses.len());
     Ok(())
 }
 
