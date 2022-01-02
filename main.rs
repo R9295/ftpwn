@@ -4,11 +4,12 @@ use std::path::Path;
 use std::vec::Vec;
 
 fn main() -> std::io::Result<()> {
-    let ip_list: Vec<String> = get_ip_list("list.txt");
+    let ip_list: Vec<String> = get_or_create_file("list.txt");
+    let passwd_list: Vec<String> = get_or_create_file("passwd.txt");
     Ok(())
 }
 
-fn get_ip_list(file_name: &str) -> Vec<String> {
+fn get_or_create_file(file_name: &str) -> Vec<String> {
     let file_exists = Path::new(file_name).is_file();
     if file_exists == false {
         // using as_str to type cast from String to &str as format! needs it
