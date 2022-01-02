@@ -20,7 +20,14 @@ impl Address {
             successful_password: String::from(""),
         }
     }
+    pub fn check_no_auth(&mut self) {
+        // Checks if the FTP server requires authentication
+        self.attempts += 1
+    }
     pub fn attempt(&mut self, password: &String) {
+        if self.attempts == 0 {
+            self.check_no_auth()
+        }
         self.attempts += 1
     }
     pub fn successful_password(&self) -> Option<&String> {
