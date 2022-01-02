@@ -1,7 +1,9 @@
+use clap::Parser;
 use std::fs;
 use std::path::Path;
 use std::vec::Vec;
-use clap::Parser;
+mod address;
+use address::Address;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -17,6 +19,12 @@ fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let ip_list: Vec<String> = read_file(&args.ip_list);
     let passwd_list: Vec<String> = read_file(&args.passwd_list);
+    let mut addresses = Vec::new();
+    // TODO make into a generator (generators are not stable yet)
+    for ip in &ip_list {
+        addresses.push(Address::new(ip))
+    }
+    println!("{:?}", addresses.len());
     Ok(())
 }
 
@@ -28,5 +36,5 @@ fn read_file(file_name: &String) -> Vec<String> {
     let contents = fs::read_to_string(&file_name)
         .expect(format!("Error reading from file {}", file_name).as_str());
     let ip_list: Vec<String> = contents.lines().map(|line| line.to_string()).collect();
-    return ip_list
+    return ip_list;
 }
