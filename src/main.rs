@@ -23,7 +23,6 @@ fn main() -> std::io::Result<()> {
 fn read_file(file_name: String) -> Vec<String> {
     let file_exists = Path::new(&file_name).is_file();
     if file_exists == false {
-        // using as_str to type cast from String to &str as format! needs it
         panic!("{}", format!("File {} does not exist!", file_name))
     }
     let contents = fs::read_to_string(&file_name)
