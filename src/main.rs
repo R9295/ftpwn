@@ -4,7 +4,8 @@ use std::path::Path;
 use std::vec::Vec;
 mod address;
 use address::Address;
-
+use std::net::TcpStream;
+use std::error::Error;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -26,6 +27,17 @@ fn main() -> std::io::Result<()> {
     // TODO make into a generator (generators are not stable yet)
     for host in &host_list {
         addresses.push(Address::new(host))
+    }
+    println!("Starting...");
+    for addr in &addresses {
+        let stream = match TcpStream::connect(addr.get_host()) {
+            Ok(stream) => {
+                println!("Successfully connected to {:?}", addr.get_host());
+            },
+            Err(err) => {
+                eprintln!("Could not connect to {:?}, Error: {:?}", addr.get_host(), err);
+            }
+        };
     }
     Ok(())
 }
