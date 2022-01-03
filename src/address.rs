@@ -1,20 +1,20 @@
 use std::option::Option;
 /*
-    Address is the class used to encapsulate IPs
+    Address is the class used to encapsulate hosts
 */
 
 #[derive(Default)]
 pub struct Address {
-    ip: String,   // IP Address
+    host: String, // Host. eg: ftp://something.something
     attempts: u8, // Attempts // TODO: will go out of bounds if there are more than 255 passwords
     is_successful: bool,
     successful_password: String,
 }
 
 impl Address {
-    pub fn new(ip: &String) -> Self {
+    pub fn new(host: &String) -> Self {
         Self {
-            ip: ip.clone(),
+            host: host.clone(),
             attempts: 0,
             is_successful: false,
             successful_password: String::from(""),
@@ -38,5 +38,8 @@ impl Address {
     }
     pub fn is_successful(&self) -> bool {
         return self.is_successful;
+    }
+    pub fn get_host(&self) -> &String {
+        return &self.host;
     }
 }
