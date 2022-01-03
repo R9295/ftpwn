@@ -4,8 +4,10 @@ use std::path::Path;
 use std::vec::Vec;
 mod address;
 use address::Address;
+use std::io::Read;
 use std::net::TcpStream;
-use std::error::Error;
+mod constants;
+use constants::MAX_MESSAGE_SIZE;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -20,24 +22,34 @@ struct Args {
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let host_list: Vec<String> = read_file_lines(&args.host_list);
-    println!("Found {:?} Hosts", host_list.len());
+    println!("Found {:?} Host(s)", host_list.len());
     let passwd_list: Vec<String> = read_file_lines(&args.passwd_list);
-    println!("Found {:?} passwords", passwd_list.len());
+    println!("Found {:?} Credential(s)", passwd_list.len());
     let mut addresses = Vec::new();
     // TODO make into a generator (generators are not stable yet)
     for host in &host_list {
         addresses.push(Address::new(host))
     }
     println!("Starting...");
-    for addr in &addresses {
-        let stream = match TcpStream::connect(addr.get_host()) {
-            Ok(stream) => {
-                println!("Successfully connected to {:?}", addr.get_host());
-            },
-            Err(err) => {
-                eprintln!("Could not connect to {:?}, Error: {:?}", addr.get_host(), err);
+    for addr in &mut addresses {
+        let mut stream = TcpStream::connect(addr.get_host())?;
+        let mut buffer = [0; MAX_MESSAGE_SIZE];
+        stream.read(&mut buffer)?;
+        // clear buffer with welcome message
+        drop(buffer);
+        for passwd in &passwd_list {
+            let iter: Vec<&str> = passwd.split(":").collect();
+            addr.attempt(&iter[0], &iter[1], &mut stream)?;
+            if addr.is_successful() == true {
+                println!(
+                    "Success on {:?} with credentials {:?}. Total attempts: {:?}",
+                    addr.get_host(),
+                    addr.get_successful_password().unwrap(),
+                    addr.attempts()
+                );
+                break;
             }
-        };
+        }
     }
     Ok(())
 }
