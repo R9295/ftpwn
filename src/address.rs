@@ -10,7 +10,7 @@ use std::str;
 
 #[derive(Default)]
 pub struct Address {
-    host: String, // Host. eg: ftp://something.something
+    host: String, // Host. eg: something.something
     attempts: u8, // Attempts // TODO: will go out of bounds if there are more than 255 passwords
     is_successful: bool,
     successful_password: String,
@@ -38,7 +38,6 @@ impl Address {
         if self.attempts == 0 {
             self.check_no_auth()
         }
-        println!("Attempting credentials {} on {}", password, self.host);
         stream.write(format!("USER {}\r\n", user).as_bytes())?;
         let mut buffer = [0; MAX_MESSAGE_SIZE];
         stream.read(&mut buffer)?;

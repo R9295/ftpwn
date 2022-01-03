@@ -11,20 +11,20 @@ use constants::MAX_MESSAGE_SIZE;
 
 #[derive(Parser, Debug)]
 struct Args {
-    // .txt file containing list of IPs
+    // path to .txt file containing list of IPs
     #[clap(short, long)]
-    host_list: String,
-    // .txt file containing list of passwords
+    hosts: String,
+    // path to .txt file containing list of passwords
     #[clap(short, long)]
-    passwd_list: String,
+    credentials: String,
 }
 
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
-    let host_list: Vec<String> = read_file_lines(&args.host_list);
+    let host_list: Vec<String> = read_file_lines(&args.hosts);
     println!("Found {:?} Host(s)", host_list.len());
-    let passwd_list: Vec<String> = read_file_lines(&args.passwd_list);
-    println!("Found {:?} Credential(s)", passwd_list.len());
+    let credential_list: Vec<String> = read_file_lines(&args.credentials);
+    println!("Found {:?} Credential(s)", credential_list.len());
     let mut addresses = Vec::new();
     // TODO make into a generator (generators are not stable yet)
     for host in &host_list {
@@ -37,7 +37,7 @@ fn main() -> std::io::Result<()> {
         stream.read(&mut buffer)?;
         // clear buffer with welcome message
         drop(buffer);
-        for passwd in &passwd_list {
+        for passwd in &credential_list {
             let iter: Vec<&str> = passwd.split(":").collect();
             addr.attempt(&iter[0], &iter[1], &mut stream)?;
             if addr.is_successful() == true {
