@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  ftp:
+    image: stilliard/pure-ftpd
+    container_name: pure-ftpd
+    ports:
+      - "5666:21"
+      - "30000-30009:30000-30009"
+    volumes:
+      - "/tmp:/home/username/"
+      - "/tmp:/etc/pure-ftpd/passwd"
+    environment:
+      PUBLICHOST: "localhost"
+      FTP_USER_NAME: admin
+      FTP_USER_PASS: admin
+      FTP_USER_HOME: /tmp
+      ADDED_FLAGS: "-d -d"  # extra verbose logging
+    restart: always
