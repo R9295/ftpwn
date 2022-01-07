@@ -7,4 +7,4 @@ Learning Rust by building a FTP brute-forcer
 - [ ] Caching
 - [ ] Distributed workload (across several running instances)
 - [ ] Built-in performance metrics
-- [ ] Dump results in graphDB for anaylsis
+- [ ] Dump results in a DB for anaylsis
