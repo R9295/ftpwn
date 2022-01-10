@@ -27,9 +27,9 @@ fn main() -> std::io::Result<()> {
         addresses.push(Address::new(host))
     }
     println!("Starting...");
+    let mut buffer = [0; MAX_MESSAGE_SIZE];
     for addr in &mut addresses {
         let mut stream = TcpStream::connect(addr.get_host())?;
-        let mut buffer = [0; MAX_MESSAGE_SIZE];
         stream.read(&mut buffer)?;
         // read welcome message and make sure the code is 220 (Service ready for new user)
         // TODO retry later if not.
