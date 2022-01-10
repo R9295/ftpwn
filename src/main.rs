@@ -34,13 +34,12 @@ fn main() -> std::io::Result<()> {
     for addr in &mut addresses {
         let mut stream = TcpStream::connect(addr.get_host())?;
         let mut buffer = [0; MAX_MESSAGE_SIZE];
+        // read welcome message
         stream.read(&mut buffer)?;
-        // clear buffer with welcome message
-        drop(buffer);
         for passwd in &credential_list {
-            let iter: Vec<&str> = passwd.split(":").collect();
-            addr.attempt(&iter[0], &iter[1], &mut stream)?;
-            if addr.is_successful() == true {
+            let iter: Vec<&str> = passwd.split(':').collect();
+            addr.attempt(iter[0], iter[1], &mut stream)?;
+            if addr.is_successful(){
                 println!(
                     "Success on {:?} with credentials {:?}. Total attempts: {:?}",
                     addr.get_host(),
@@ -54,13 +53,12 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn read_file_lines(file_name: &String) -> Vec<String> {
+fn read_file_lines(file_name: &str) -> Vec<String> {
     let file_exists = Path::new(&file_name).is_file();
-    if file_exists == false {
+    if !file_exists {
         panic!("{}", format!("File {} does not exist!", file_name))
     }
     let contents = fs::read_to_string(&file_name)
-        .expect(format!("Error reading from file {}", file_name).as_str());
-    let lines: Vec<String> = contents.lines().map(|line| line.to_string()).collect();
-    return lines;
+        .unwrap_or_else(|_| panic!("Error reading from file {}", file_name));
+    return contents.lines().map(|line| line.to_string()).collect();
 }
