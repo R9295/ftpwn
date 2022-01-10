@@ -13,7 +13,7 @@ pub struct Address {
     host: String, // Host. eg: something.something
     attempts: u8, // Attempts // TODO: will go out of bounds if there are more than 255 passwords
     is_successful: bool,
-    successful_password: String,
+    successful_credentials: String,
 }
 
 impl Address {
@@ -22,7 +22,7 @@ impl Address {
             host: host.clone(),
             attempts: 0,
             is_successful: false,
-            successful_password: String::from(""),
+            successful_credentials: String::from(""),
         }
     }
     pub fn check_no_auth(&mut self) {
@@ -47,6 +47,7 @@ impl Address {
             stream.read(&mut buffer)?;
             // code 230
             if &buffer[..3] == [50, 51, 48] {
+                self.successful_credentials = format!("{}:{}", user, password);
                 self.is_successful = true
             }
         }
@@ -54,11 +55,11 @@ impl Address {
         self.attempts += 1;
         return Ok(());
     }
-    pub fn get_successful_password(&self) -> Option<&String> {
+    pub fn get_successful_credentials(&self) -> Option<&String> {
         if !self.is_successful {
             return None;
         }
-        return Some(&self.successful_password);
+        return Some(&self.successful_credentials);
     }
     pub fn is_successful(&self) -> bool {
         return self.is_successful;

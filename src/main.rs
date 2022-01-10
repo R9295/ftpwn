@@ -44,7 +44,7 @@ fn main() -> std::io::Result<()> {
                 println!(
                     "Success on {:?} with credentials {:?}. Total attempts: {:?}",
                     addr.get_host(),
-                    addr.get_successful_password().unwrap(),
+                    addr.get_successful_credentials().unwrap(),
                     addr.attempts()
                 );
                 break;
