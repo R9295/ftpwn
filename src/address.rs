@@ -56,7 +56,7 @@ impl Address {
         Ok(())
     }
     pub fn get_successful_credentials(&self) -> Option<&String> {
-        return self.successful_credentials.as_ref()
+        return self.successful_credentials.as_ref();
     }
     pub fn is_successful(&self) -> bool {
         self.is_successful

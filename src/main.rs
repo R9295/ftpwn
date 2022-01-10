@@ -1,7 +1,8 @@
-use clap::Parser;
 mod address;
-use address::Address;
 mod constants;
+
+use address::Address;
+use clap::Parser;
 use constants::MAX_MESSAGE_SIZE;
 use std::{fs::read_to_string, io::Read, net::TcpStream, path::Path, vec::Vec};
 
