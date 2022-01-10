@@ -1,13 +1,13 @@
 /*
     Address is the class used to encapsulate hosts
 */
-
 use crate::constants::MAX_MESSAGE_SIZE;
-use std::io::{Read, Write};
-use std::net::TcpStream;
-use std::option::Option;
-use std::str;
-
+use std::{
+    io::{Read, Write},
+    net::TcpStream,
+    option::Option,
+    str,
+};
 #[derive(Default)]
 pub struct Address {
     host: String, // Host. eg: something.something
