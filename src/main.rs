@@ -8,6 +8,7 @@ use std::{
     io::{Read, Result, Write},
     net::TcpStream,
     path::Path,
+    sync::{Arc, Condvar, Mutex},
     time::Instant,
     vec::Vec,
 };
@@ -39,8 +40,11 @@ fn main() -> Result<()> {
         .into_iter()
         .map(|chunk| chunk.collect())
         .collect();
+    let pair = Arc::new((Mutex::new(false), Condvar::new()));
+    let pair2 = pair.clone();
     for cred_chunk in chunks {
         let host = host.clone();
+        let pair2 = pair2.clone();
         pool.execute(move || {
             let cred_chunk = cred_chunk.clone();
             let copied_host = host.clone();
@@ -53,7 +57,14 @@ fn main() -> Result<()> {
                     match attempt(cred, &mut stream) {
                         Ok(code) => {
                             if code == 1 {
-                                println!("Done");
+                                println!("------------- SUCCESS -------------");
+                                println!("{}", cred);
+                                println!("------------- SUCCESS -------------");
+                                let &(ref lock, ref cvar) = &*pair2;
+                                let mut done = lock.lock().unwrap();
+                                *done = true;
+                                // We notify the condvar that the value has changed.
+                                cvar.notify_one();
                             }
                         }
                         Err(err) => {
@@ -69,8 +80,13 @@ fn main() -> Result<()> {
             }
         })
     }
-    pool.join();
-    println!("Total time elapsed: {}", now.elapsed().as_millis());
+    // wait for the thread to start up
+    let &(ref lock, ref cvar) = &*pair;
+    let mut done = lock.lock().unwrap();
+    while !*done {
+        done = cvar.wait(done).unwrap();
+    }
+    println!("Total time elapsed: {}", now.elapsed().as_secs());
     Ok(())
 }
 
