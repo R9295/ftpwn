@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::MutexGuard;
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::usize;
 use std::{
     io::{Read, Result, Write},
     net::TcpStream,
@@ -25,6 +26,8 @@ struct Args {
     credentials: String,
 }
 
+const CHUNK_AMOUNT: usize = 10;
+
 fn main() -> Result<()> {
     let args = Args::parse();
     println!("Starting...");
@@ -39,10 +42,10 @@ fn main() -> Result<()> {
     let mut cred_amount: usize = BufReader::new(cred_file_lines).lines().count();
     println!("credential count {}", cred_amount);
     let reader = Arc::new(Mutex::new(BufReader::new(cred_file)));
-    if cred_amount % 10 > 0 {
-        cred_amount = cred_amount + (10 - cred_amount % 10)
+    if cred_amount % CHUNK_AMOUNT > 0 {
+        cred_amount = cred_amount + (CHUNK_AMOUNT - cred_amount % CHUNK_AMOUNT)
     }
-    for _ in 0..cred_amount / 10 {
+    for _ in 0..cred_amount / CHUNK_AMOUNT {
         let reader = reader.clone();
         let host = host.clone();
         let pair2 = pair.clone();
@@ -120,7 +123,7 @@ fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Re
 
 fn get_chunk(mut reader: MutexGuard<BufReader<File>>) -> Option<Vec<String>> {
     let mut chunk: Vec<String> = Vec::new();
-    for _ in 0..10 {
+    for _ in 0..CHUNK_AMOUNT {
         let mut line = String::new();
         match reader.read_line(&mut line) {
             Ok(res) => {
