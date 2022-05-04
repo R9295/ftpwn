@@ -4,8 +4,8 @@ use clap::Parser;
 use constants::MAX_MESSAGE_SIZE;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::sync::MutexGuard;
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::MutexGuard;
 use std::usize;
 use std::{
     io::{Read, Result, Write},
