@@ -1,16 +1,18 @@
-mod constants;
+mod server;
+use std::io::prelude::*;
 
 use clap::Parser;
-use constants::MAX_MESSAGE_SIZE;
+pub use server::Server;
+pub use server::Connect_To_Server;
+
 use itertools::Itertools;
 use std::fs::File;
-
 use std::io::BufReader;
+
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::{
     fs::read_to_string,
-    io::{Read, Result, Write},
-    net::TcpStream,
+    io::{ Result},
     path::Path,
     sync::{Arc, Condvar, Mutex},
     time::Instant,
@@ -36,69 +38,13 @@ struct Parsed_Args {
 
 
 
-trait Connect_To_Server<'a> {
-    fn new(host: &'a String) -> Self;
-    fn send(&self,credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8>;
-    fn can_connect(&self,stream: &mut TcpStream) -> bool;
-    fn connect_tcp(&self) -> TcpStream;
-}
 
 struct Server<'a>{
     host: &'a String
 }
 
-impl<'a> Connect_To_Server<'a> for Server<'a> {
-    fn new(host: &'a String) -> Self {
-        Server::<'a> {
-        host:host}
-    }
+    println!("{:?}",receiver1.recv());
 
-    fn connect_tcp(&self) -> TcpStream {
-        return  TcpStream::connect(self.host.clone()).unwrap();
-    }
-
-    fn send(&self,credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8> {
-        if let [username, password] = &credential.split(':').take(2).collect::<Vec<&str>>()[..] {
-            sender.send(1);
-            let mut buffer = [0; MAX_MESSAGE_SIZE];
-
-            println!("attempting: {} {}", username, password);
-            stream.write(format!("USER {}\r\n", username).as_bytes())?;
-            let mut buffer = [0; MAX_MESSAGE_SIZE];
-            stream.read(&mut buffer)?;
-            // code 331 (User name okay, need password)
-            if buffer[..3] == [51, 51, 49] {
-                stream.write(format!("PASS {}\r\n", password).as_bytes())?;
-                stream.read(&mut buffer)?;
-                // code 230 (User logged in, proceed. Logged out if appropriate)
-                if buffer[..3] == [50, 51, 48] {
-                    return Ok(1);
-                }
-            }
-        }
-        return Ok(0);
-    }
-
-    fn can_connect(&self,stream: &mut TcpStream) -> bool {
-        let mut buffer = [0; MAX_MESSAGE_SIZE];
-        stream.read(&mut buffer).unwrap();
-        // read welcome message and make sure the code is 220 (Service ready for new user)
-        if buffer[..3] == [50, 50, 48] {
-            return true;
-        } else {
-            println!(
-                "It appears that {:?} is not ready for new connections",
-                self.host
-            );
-            return false
-        }
-    }
-    
-} 
-
-fn get_cred() -> Parsed_Args {
-    let args = Raw_Args::parse();
-    let host = args.host;
     fn crad_to_chunks(credentials: &str) -> Vec<Vec<String>>{
         let credential_list: Vec<String> = read_file_lines(credentials);
         println!("Found {:?} Credential(s)", credential_list.len());
