@@ -43,20 +43,7 @@ struct Server<'a>{
     host: &'a String
 }
 
-    println!("{:?}",receiver1.recv());
 
-    fn crad_to_chunks(credentials: &str) -> Vec<Vec<String>>{
-        let credential_list: Vec<String> = read_file_lines(credentials);
-        println!("Found {:?} Credential(s)", credential_list.len());
-        println!("Starting...");
-        let chunks: Vec<Vec<String>> = credential_list
-            .into_iter()
-            .chunks(10)
-            .into_iter()
-            .map(|chunk| chunk.collect())
-            .collect();
-        return  chunks;
-    }
 
     return Parsed_Args{credentials:crad_to_chunks(&args.credentials),host: host }
 
@@ -87,80 +74,10 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn read_file_lines(file_name: &str) -> Vec<String> {
-    let file_exists = Path::new(&file_name).is_file();
-    if !file_exists {
-        panic!("{}", format!("File {} does not exist!", file_name))
-    }
-    let contents = read_to_string(&file_name)
-        .unwrap_or_else(|_| panic!("Error reading from file {}", file_name));
-    return contents.lines().map(|line| line.to_string()).collect();
-}
 
 
 
-// struct IFetcher{ 
-//     credential_path: &str,
-//     reserve_block: Vec<Vec<String>>,
-//     fetch_block: Vec<Vec<String>>,
-//     reader: FileReader
-// }
-// trait Fetcher {
-//     fn new(credential_path: &str) -> Self;
-//     fn get_chunk(&self) -> Vec<String>;
-//     fn close_connection(&self) -> bool;
-//     fn _transfer_to_fetch_block(&self);
-//     fn _fetch_from_file(&self) ->  Vec<Vec<String>>;
-// }
 
-// impl Fetcher for IFetcher {
-//     fn new(credential_path: &str) -> Self {
-//         Self {
-//             credential_path: credential_path,
-//             fetch_block: Vec::new(),
-//             reserve_block: Vec::new()
-//         }
-//     }
-
-//     fn get_chunk(&self) {
-//         if self.fetch_block.count() > 0 {
-//             return self.fetch_block.pop()
-//         }
-//     }
-
-//     fn _transfer_to_fetch_block(&self) {
-//         self.fetch_block = self.reserve_block;
-//         self.reserve_block = self._fetch_from_file();
-//     }
-
-//     fn _fetch_from_file(&self) ->  Vec<Vec<String>> {
-//         let reader = self.reader
-//     }
-// }
-
-// struct FileReader {
-//     buffReader: BufReader<File>
-// }
-
-// impl FileReader {
-//     fn new(credential_path: &str) -> Self {
-//         Self {
-//             buffReader:  BufReader::new(File::open(credential_path)?)
-//         }
-//     }
-
-//     fn get_chunk() -> Vec<Vec<String>>{
-//         return  Vec::new();
-//     }
-
-//     // fn _create_buf_reader(credential_path: &str) {
-//     //     let file = File::open("foo.txt")?;
-//     //     return BufReader::new(file);
-
-
-//     // }
-
-// }
 #[derive(Clone)]
 struct HandleThreads {
     pair: Arc<(Mutex<bool>,Condvar)>,
