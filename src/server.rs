@@ -32,15 +32,17 @@ impl<'a> Connect_To_Server<'a> for Server<'a> {
         if let [username, password] = &credential.split(':').take(2).collect::<Vec<&str>>()[..] {
             sender.send(1);
             let mut buffer = [0; MAX_MESSAGE_SIZE];
-
             println!("attempting: {} {}", username, password);
             stream.write(format!("USER {}\r\n", username).as_bytes())?;
-            let mut buffer = [0; MAX_MESSAGE_SIZE];
             stream.read(&mut buffer)?;
             // code 331 (User name okay, need password)
+
             if buffer[..3] == [51, 51, 49] {
+                
                 stream.write(format!("PASS {}\r\n", password).as_bytes())?;
                 stream.read(&mut buffer)?;
+                println!("after writing to buffer from send server");
+
                 // code 230 (User logged in, proceed. Logged out if appropriate)
                 if buffer[..3] == [50, 51, 48] {
                     return Ok(1);
