@@ -9,7 +9,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::MutexGuard;
 use std::usize;
 use std::{
-    io::{Read, Result, Write},
+    io::{Read, Result, Seek, SeekFrom, Write},
     net::TcpStream,
     sync::{Arc, Condvar, Mutex},
     time::Instant,
@@ -33,20 +33,16 @@ fn main() -> Result<()> {
     let args = Args::parse();
     println!("Starting...");
     let now = Instant::now();
+    let host = args.host;
+    let mut cred_file = BufReader::new(File::open(&args.credentials)?);
+    let cred_count = get_cred_count(&mut cred_file);
+    println!("credential count {}", cred_count);
     // vsftpd default max conn = 5
     let pool = ThreadPool::new(4);
-    let host = args.host;
     let pair = Arc::new((Mutex::new(false), Condvar::new()));
     let (sender, receiver): (Sender<u32>, Receiver<u32>) = channel();
-    let cred_file = File::open(&args.credentials)?;
-    let cred_file_lines = File::open(&args.credentials)?;
-    let mut cred_amount: usize = BufReader::new(cred_file_lines).lines().count();
-    println!("credential count {}", cred_amount);
-    let reader = Arc::new(Mutex::new(BufReader::new(cred_file)));
-    if cred_amount % CHUNK_AMOUNT > 0 {
-        cred_amount = cred_amount + (CHUNK_AMOUNT - cred_amount % CHUNK_AMOUNT)
-    }
-    for _ in 0..cred_amount / CHUNK_AMOUNT {
+    let reader = Arc::new(Mutex::new(cred_file));
+    for _ in 0..cred_count / CHUNK_AMOUNT {
         let reader = reader.clone();
         let host = host.clone();
         let pair2 = pair.clone();
@@ -93,7 +89,7 @@ fn main() -> Result<()> {
     }
     println!("Total attempts {}", receiver.try_iter().count());
     println!("Total time elapsed: {}", now.elapsed().as_secs());
-    return Ok(())
+    return Ok(());
 }
 
 fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8> {
@@ -119,6 +115,15 @@ fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Re
         }
     }
     return Ok(0);
+}
+
+fn get_cred_count(reader: &mut BufReader<File>) -> usize {
+    let mut cred_count: usize = reader.lines().count();
+    if cred_count % CHUNK_AMOUNT > 0 {
+        cred_count = cred_count + (CHUNK_AMOUNT - cred_count % CHUNK_AMOUNT)
+    }
+    reader.seek(SeekFrom::Start(0));
+    return cred_count;
 }
 
 fn get_chunk(mut reader: MutexGuard<BufReader<File>>) -> Option<Vec<String>> {
