@@ -8,4 +8,3 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.0.0", features = ["derive"] }
 itertools = "0.10.2"
-threadpool = "1.0"
