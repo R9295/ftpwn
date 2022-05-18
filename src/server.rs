@@ -1,4 +1,6 @@
-use std::sync::mpsc::{ Sender};
+
+pub use crate::channels::{channel, Receiver, Sender};
+
 use std::{
     io::{Read, Result, Write},
     net::TcpStream,
@@ -8,7 +10,7 @@ pub const MAX_MESSAGE_SIZE: usize = 512;
 
 pub trait Connect_To_Server<'a> {
     fn new(host: &'a String) -> Self;
-    fn send(&self,credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8>;
+    fn send(&self,credential: &str, stream: &mut TcpStream, sender: &mut Sender<u32>) -> Result<u8>;
     fn can_connect(&self,stream: &mut TcpStream) -> bool;
     fn connect_tcp(&self) -> TcpStream;
 }
@@ -28,15 +30,15 @@ impl<'a> Connect_To_Server<'a> for Server<'a> {
         return  TcpStream::connect(self.host.clone()).unwrap();
     }
 
-    fn send(&self,credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8> {
+    fn send(&self,credential: &str, stream: &mut TcpStream, sender: &mut Sender<u32>) -> Result<u8> {
         if let [username, password] = &credential.split(':').take(2).collect::<Vec<&str>>()[..] {
             sender.send(1);
             let mut buffer = [0; MAX_MESSAGE_SIZE];
             println!("attempting: {} {}", username, password);
             stream.write(format!("USER {}\r\n", username).as_bytes())?;
             stream.read(&mut buffer)?;
-            // code 331 (User name okay, need password)
 
+            // code 331 (User name okay, need password)
             if buffer[..3] == [51, 51, 49] {
                 
                 stream.write(format!("PASS {}\r\n", password).as_bytes())?;
