@@ -1,4 +1,5 @@
 mod constants;
+mod threadpool;
 
 use clap::Parser;
 use constants::MAX_MESSAGE_SIZE;
@@ -50,7 +51,6 @@ fn main() -> Result<()> {
         let host = host.clone();
         let pair2 = pair.clone();
         let sender = sender.clone();
-        // DEADLOCK HERE SOMEWHERE
         pool.execute(move || {
             let guard = reader.lock().unwrap();
             match get_chunk(guard) {
@@ -93,7 +93,7 @@ fn main() -> Result<()> {
     }
     println!("Total attempts {}", receiver.try_iter().count());
     println!("Total time elapsed: {}", now.elapsed().as_secs());
-    Ok(())
+    return Ok(())
 }
 
 fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Result<u8> {
