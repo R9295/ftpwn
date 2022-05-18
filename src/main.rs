@@ -2,7 +2,7 @@ mod constants;
 mod threadpool;
 
 use clap::Parser;
-use constants::MAX_MESSAGE_SIZE;
+use constants::{LOGGED_IN, MAX_MESSAGE_SIZE, RDY_FOR_NEW_USERS, USRNAME_OK};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -54,8 +54,7 @@ fn main() -> Result<()> {
                     let mut buffer = [0; MAX_MESSAGE_SIZE];
                     let mut stream = TcpStream::connect(host).unwrap();
                     stream.read(&mut buffer).unwrap();
-                    // [50,50,48] = 220 = ready for new users
-                    if buffer[..3] == [50, 50, 48] {
+                    if buffer[..3] == RDY_FOR_NEW_USERS {
                         for cred in chunk {
                             match attempt(&cred, &mut stream, &sender) {
                                 Ok(code) => {
@@ -104,12 +103,10 @@ fn attempt(credential: &str, stream: &mut TcpStream, sender: &Sender<u32>) -> Re
         stream.write(format!("USER {}\r\n", username).as_bytes())?;
         let mut buffer = [0; MAX_MESSAGE_SIZE];
         stream.read(&mut buffer)?;
-        // code 331 (User name okay, need password)
-        if buffer[..3] == [51, 51, 49] {
+        if buffer[..3] == USRNAME_OK {
             stream.write(format!("PASS {}\r\n", password).as_bytes())?;
             stream.read(&mut buffer)?;
-            // code 230 (User logged in, proceed. Logged out if appropriate)
-            if buffer[..3] == [50, 51, 48] {
+            if buffer[..3] == LOGGED_IN {
                 return Ok(1);
             }
         }
