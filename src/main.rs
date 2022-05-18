@@ -37,6 +37,28 @@ struct RawArgs {
     credentials: String,
 }
 
+
+
+
+fn main() -> Result<()> {
+    let args = RawArgs::parse();
+    let host = args.host;
+    let (mut sender, mut receiver): (Sender<String>, Receiver<String>) = channel();
+    let (mut counter_sender, mut counter_receiver): (Sender<u32>, Receiver<u32>) = channel();
+
+    thread::spawn(move || line_producer(&args.credentials,&mut sender));
+
+    let now = Instant::now();
+    let manage_threads = HandleThreads::new();
+    send_line_to_pool(&mut receiver,host,&mut counter_sender,&manage_threads);
+
+    manage_threads.start_work();
+
+    println!("Total attempts {}", counter_receiver.count_queue());
+    println!("Total time elapsed: {}", now.elapsed().as_secs());
+    Ok(())
+}
+
 fn line_producer(file_name: &str,sender: &mut Sender<String>)->  std::io::Result<()> {
     let file_exists = Path::new(&file_name).is_file();
     if !file_exists {
@@ -57,36 +79,16 @@ fn line_producer(file_name: &str,sender: &mut Sender<String>)->  std::io::Result
 
 }
 
-
-
-fn main() -> Result<()> {
-    // get the cradential list from the arguments
-    let args1 = RawArgs::parse();
-
-    let host = args1.host;
-    let (mut sender, mut receiver): (Sender<String>, Receiver<String>) = channel();
-    let (mut counter_sender, mut counter_receiver): (Sender<u32>, Receiver<u32>) = channel();
-
-    thread::spawn(move || line_producer(&args1.credentials,&mut sender));
-
-    let now = Instant::now();
+fn send_line_to_pool(receiver: &mut Receiver<String>,host: String, counter_sender:&mut Sender<u32>,manage_threads:&HandleThreads) -> () {
     let pool = ThreadPool::new(4);
-    let manage_threads = HandleThreads::new();
-    
+
     for line in receiver {
         let host = host.clone();
         let mut counter_sender = counter_sender.clone();
         let manage_threads_clone = manage_threads.clone();
         pool.execute(move || pwn_server(&manage_threads_clone,host,&mut counter_sender,line));
     }
-
-    manage_threads.start_work();
-
-    println!("Total attempts {}", counter_receiver.count_queue());
-    println!("Total time elapsed: {}", now.elapsed().as_secs());
-    Ok(())
 }
-
 
 
 
@@ -115,3 +117,5 @@ fn pwn_server(manage_threads:&HandleThreads,host: String,sender: &mut Sender<u32
         );
     }
 } 
+
+
