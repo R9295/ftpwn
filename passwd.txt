@@ -6,9 +6,9 @@ admin:123456789
 admin:12345
 admin:1234
 admin:111111
+admin:admin
 admin:1234567
 admin:dragon
-admin:admin
 admin:123123
 admin:baseball
 admin:abc123
@@ -771,7 +771,6 @@ admin:141414
 admin:zaq12wsx
 admin:shit
 admin:patches
-admin:nigger
 admin:cunt
 admin:raider
 admin:infinity
